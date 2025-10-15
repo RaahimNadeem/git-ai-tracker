@@ -71,14 +71,14 @@ pub fn commit_post_command_hook(
     let commit_author = get_commit_default_author(repository, &parsed_args.command_args);
     if parsed_args.has_command_flag("--amend") && original_commit.is_some() && new_sha.is_some() {
         repository.handle_rewrite_log_event(
-            RewriteLogEvent::commit_amend(original_commit.unwrap(), new_sha.unwrap()),
+            RewriteLogEvent::commit_amend(original_commit.unwrap(), new_sha.as_ref().unwrap().clone()),
             commit_author,
             supress_output,
             true,
         );
     } else {
         repository.handle_rewrite_log_event(
-            RewriteLogEvent::commit(original_commit, new_sha.unwrap()),
+            RewriteLogEvent::commit(original_commit, new_sha.as_ref().unwrap().clone()),
             commit_author,
             supress_output,
             true,
