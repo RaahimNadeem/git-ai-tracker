@@ -1,0 +1,109 @@
+{
+  "name": "cursor-git-ai-tracker",
+  "displayName": "git-ai-tracker for Cursor",
+  "description": "Automatically track AI code contributions in Cursor",
+  "version": "1.0.0",
+  "icon": "git-ai.png",
+  "publisher": "git-ai-tracker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RaahimNadeem/git-ai-tracker"
+  },
+  "engines": {
+    "vscode": "1.99.3",
+    "node": ">=20.18.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Cursor Git AI",
+      "properties": {
+        "cursorGitAi.enableCheckpointLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable notifications for AI and human edit detection. ABC"
+        }
+      }
+    },
+    "commands": [
+
+
+
+      {
+        "command": "cursor-git-ai-tracker.pasteWithDetection",
+        "title": "Paste with AI Detection"
+      },
+      {
+        "command": "cursor-git-ai-tracker.undoWithDetection",
+        "title": "Undo with AI Detection"
+      },
+      {
+        "command": "cursor-git-ai-tracker.redoWithDetection",
+        "title": "Redo with AI Detection"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cursor-git-ai-tracker.pasteWithDetection",
+        "key": "ctrl+v",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "cursor-git-ai-tracker.pasteWithDetection",
+        "key": "cmd+v",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "cursor-git-ai-tracker.undoWithDetection",
+        "key": "ctrl+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "cursor-git-ai-tracker.undoWithDetection",
+        "key": "cmd+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "cursor-git-ai-tracker.redoWithDetection",
+        "key": "ctrl+shift+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "cursor-git-ai-tracker.redoWithDetection",
+        "key": "cmd+shift+z",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "lodash.debounce": "4.0.8"
+  },
+  "devDependencies": {
+    "ovsx": "0.10.4",
+    "@vscode/vsce": "3.6.0",
+    "@types/vscode": "1.99.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/lodash.debounce": "4.0.9",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
