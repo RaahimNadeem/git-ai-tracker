@@ -1,0 +1,163 @@
+name: AI Stats PR Comment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-stats-comment:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for accurate stats
+          
+      - name: Fetch PR base branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
+          
+      - name: Install git-ai-tracker
+        run: |
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+          echo "$HOME/.git-ai-tracker/bin" >> $GITHUB_PATH
+          
+      - name: Calculate AI stats for PR
+        id: calculate_stats
+        run: |
+          # Get list of commits in this PR
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          # Calculate stats for each commit in the PR
+          COMMITS=$(git rev-list $BASE_SHA..$HEAD_SHA)
+          
+          TOTAL_AI_LINES=0
+          TOTAL_HUMAN_LINES=0
+          TOTAL_ADDITIONS=0
+          COMMIT_COUNT=0
+          
+          for commit in $COMMITS; do
+            # Get stats using git-ai-tracker (if available)
+            if git-ai-tracker stats $commit --json > /tmp/stats.json 2>/dev/null; then
+              AI_ADDITIONS=$(jq -r '.ai_additions' /tmp/stats.json)
+              HUMAN_ADDITIONS=$(jq -r '.human_additions' /tmp/stats.json)
+              GIT_DIFF_ADDITIONS=$(jq -r '.git_diff_added_lines' /tmp/stats.json)
+              
+              TOTAL_AI_LINES=$((TOTAL_AI_LINES + AI_ADDITIONS))
+              TOTAL_HUMAN_LINES=$((TOTAL_HUMAN_LINES + HUMAN_ADDITIONS))
+              TOTAL_ADDITIONS=$((TOTAL_ADDITIONS + GIT_DIFF_ADDITIONS))
+              COMMIT_COUNT=$((COMMIT_COUNT + 1))
+            fi
+          done
+          
+          # Calculate percentage
+          if [ $TOTAL_ADDITIONS -gt 0 ]; then
+            AI_PERCENTAGE=$((TOTAL_AI_LINES * 100 / TOTAL_ADDITIONS))
+          else
+            AI_PERCENTAGE=0
+          fi
+          
+          echo "ai_percentage=$AI_PERCENTAGE" >> $GITHUB_OUTPUT
+          echo "ai_lines=$TOTAL_AI_LINES" >> $GITHUB_OUTPUT
+          echo "human_lines=$TOTAL_HUMAN_LINES" >> $GITHUB_OUTPUT
+          echo "total_additions=$TOTAL_ADDITIONS" >> $GITHUB_OUTPUT
+          echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          
+      - name: Create or Update PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const aiPercentage = '${{ steps.calculate_stats.outputs.ai_percentage }}';
+            const aiLines = '${{ steps.calculate_stats.outputs.ai_lines }}';
+            const humanLines = '${{ steps.calculate_stats.outputs.human_lines }}';
+            const totalAdditions = '${{ steps.calculate_stats.outputs.total_additions }}';
+            const commitCount = '${{ steps.calculate_stats.outputs.commit_count }}';
+            
+            // Create a visual representation
+            const aiPercent = parseInt(aiPercentage);
+            const humanPercent = 100 - aiPercent;
+            
+            // Create progress bar
+            const barLength = 20;
+            const aiBlocks = Math.round((aiPercent / 100) * barLength);
+            const humanBlocks = barLength - aiBlocks;
+            const aiBar = '█'.repeat(aiBlocks);
+            const humanBar = '░'.repeat(humanBlocks);
+            
+            // Determine emoji based on AI percentage
+            let emoji = '🤖';
+            if (aiPercent > 75) emoji = '🤖🤖🤖';
+            else if (aiPercent > 50) emoji = '🤖🤖';
+            else if (aiPercent > 25) emoji = '🤖';
+            else emoji = '👨‍💻';
+            
+            const comment = `## ${emoji} AI Contribution Statistics
+            
+This PR contains **${aiPercentage}%** AI-generated code.
+
+### 📊 Breakdown
+
+\`\`\`
+Human  ${humanBar}${aiBar}  AI
+        ${humanPercent}%          ${aiPercent}%
+\`\`\`
+
+| Metric | Value |
+|--------|-------|
+| 🤖 AI Lines | ${aiLines} |
+| 👨‍💻 Human Lines | ${humanLines} |
+| ➕ Total Additions | ${totalAdditions} |
+| 📝 Commits Analyzed | ${commitCount} |
+
+---
+
+<details>
+<summary>💡 How this is calculated</summary>
+
+This PR uses [git-ai-tracker](https://github.com/${{ github.repository }}) to automatically detect and track AI-generated code contributions. The statistics are calculated by analyzing:
+- GitHub Copilot suggestions
+- Cursor AI edits
+- Other AI coding assistants
+
+AI-generated code is tracked at the line level and stored in git notes for transparency and accountability.
+</details>
+
+<sub>🚀 Powered by [git-ai-tracker](https://github.com/${{ github.repository }}) | Last updated: ${new Date().toISOString()}</sub>`;
+            
+            // Find existing comment
+            const {data: comments} = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('AI Contribution Statistics')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
