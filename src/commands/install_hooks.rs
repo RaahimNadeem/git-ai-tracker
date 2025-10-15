@@ -11,11 +11,16 @@ use std::process::Command;
 // Minimum version requirements
 const MIN_CURSOR_VERSION: (u32, u32) = (1, 7);
 const MIN_CODE_VERSION: (u32, u32) = (1, 99);
+const MIN_CLAUDE_VERSION: (u32, u32) = (1, 0);
 
 // Command patterns for hooks (after "git-ai-tracker")
 // Cursor hooks (requires absolute path to avoid shell config loading delay)
 const CURSOR_BEFORE_SUBMIT_CMD: &str = "checkpoint cursor --hook-input \"$(cat)\"";
 const CURSOR_AFTER_EDIT_CMD: &str = "checkpoint cursor --hook-input \"$(cat)\"";
+
+// Claude Code hooks
+const CLAUDE_PRE_TOOL_CMD: &str = "checkpoint --hook-input \"$(cat)\"";
+const CLAUDE_POST_TOOL_CMD: &str = "checkpoint claude --hook-input \"$(cat)\"";
 
 pub fn run(args: &[String]) -> Result<(), GitAiError> {
     // Parse --dry-run flag (default: false)

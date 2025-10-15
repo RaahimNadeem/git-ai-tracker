@@ -86,8 +86,8 @@ pub fn commit_post_command_hook(
     }
 
     // NEW FEATURE: Append AI% metadata to git notes
-    if let Some(sha) = new_sha {
-        if let Err(e) = append_ai_percentage_to_notes(repository, &sha) {
+    if let Some(ref sha) = new_sha {
+        if let Err(e) = append_ai_percentage_to_notes(repository, sha) {
             // Don't fail the commit if this fails, just warn
             debug_log(&format!("Warning: Failed to append AI percentage to notes: {}", e));
         }

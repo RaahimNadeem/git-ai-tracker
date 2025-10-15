@@ -100,9 +100,9 @@ jobs:
             
             const comment = `## ${emoji} AI Contribution Statistics
             
-This PR contains **${aiPercentage}%** AI-generated code.
-
-### 📊 Breakdown
+            This PR contains **${aiPercentage}%** AI-generated code.
+            
+            ### 📊 Breakdown
 
 \`\`\`
 Human  ${humanBar}${aiBar}  AI
