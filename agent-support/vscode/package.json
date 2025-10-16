@@ -1,20 +1,49 @@
 {
   "name": "git-ai-tracker-vscode",
-  "displayName": "git-ai-tracker for VS Code (GitHub Copilot & Cursor)",
-  "description": "Automatically track AI code contributions from GitHub Copilot and Cursor",
+  "displayName": "git-ai-tracker - AI Code Attribution",
+  "description": "Track AI-generated code contributions from GitHub Copilot. See what percentage of your codebase was written by AI vs humans.",
   "version": "1.0.0",
   "icon": "git-ai.png",
-  "publisher": "git-ai-tracker",
+  "publisher": "RaahimNadeem",
+  "author": {
+    "name": "Raahim Nadeem",
+    "url": "https://github.com/RaahimNadeem"
+  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/RaahimNadeem/git-ai-tracker"
   },
+  "bugs": {
+    "url": "https://github.com/RaahimNadeem/git-ai-tracker/issues"
+  },
+  "homepage": "https://github.com/RaahimNadeem/git-ai-tracker#readme",
+  "keywords": [
+    "ai",
+    "copilot",
+    "github-copilot",
+    "code-tracking",
+    "attribution",
+    "ai-statistics",
+    "git",
+    "git-notes",
+    "code-analysis",
+    "transparency"
+  ],
   "engines": {
     "vscode": ">=1.99.3",
     "node": ">=20.18.1"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Machine Learning"
+  ],
+  "badges": [
+    {
+      "url": "https://img.shields.io/github/v/release/RaahimNadeem/git-ai-tracker",
+      "href": "https://github.com/RaahimNadeem/git-ai-tracker/releases",
+      "description": "Latest Release"
+    }
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -44,16 +73,17 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
-    "ovsx": "0.10.4",
-    "@vscode/vsce": "3.6.0",
-    "@types/vscode": "1.99.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "1.99.1",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
-  }
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "3.6.0",
+    "eslint": "^9.25.1",
+    "ovsx": "0.10.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "yarn@4.9.2+sha512.1fc009bc09d13cfd0e19efa44cbfc2b9cf6ca61482725eb35bbc5e257e093ebf4130db6dfe15d604ff4b79efd8e1e8e99b25fa7d0a6197c9f9826358d4d65c3c"
 }

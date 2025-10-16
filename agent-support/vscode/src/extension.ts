@@ -16,8 +16,13 @@ class AIEditManager {
     count: number;
     uri: vscode.Uri;
   }>();
+  private recentAICompletions = new Map<string, {
+    timestamp: number;
+    lineCount: number;
+  }>();
   private readonly SAVE_EVENT_DEBOUNCE_WINDOW_MS = 300;
   private readonly HUMAN_CHECKPOINT_DEBOUNCE_MS = 500;
+  private readonly AI_COMPLETION_WINDOW_MS = 2000; // 2 seconds to detect AI completion before save
 
   constructor(context: vscode.ExtensionContext) {    
     if (context.storageUri?.fsPath) {
@@ -25,6 +30,32 @@ class AIEditManager {
     } else {
       // No workspace active (extension will be re-activated when a workspace is opened)
       console.warn('[git-ai-tracker] No workspace storage URI available');
+    }
+  }
+
+  public handleTextChangeEvent(event: vscode.TextDocumentChangeEvent): void {
+    // Detect potential AI completions based on change characteristics
+    if (event.contentChanges.length === 0) return;
+
+    const doc = event.document;
+    const filePath = doc.uri.fsPath;
+
+    for (const change of event.contentChanges) {
+      // Heuristic: Multi-line changes or large insertions are likely AI
+      const isMultiLine = change.text.includes('\n');
+      const isLargeInsertion = change.text.length > 20; // More than 20 characters
+      const isSingleCharOrDeletion = change.text.length <= 1 || change.rangeLength > 0;
+
+      if ((isMultiLine || isLargeInsertion) && !isSingleCharOrDeletion) {
+        console.log('[git-ai-tracker] AIEditManager: Potential AI completion detected -', 
+                    'multiline:', isMultiLine, 'large:', isLargeInsertion, 'chars:', change.text.length);
+        
+        const lineCount = (change.text.match(/\n/g) || []).length + 1;
+        this.recentAICompletions.set(filePath, {
+          timestamp: Date.now(),
+          lineCount
+        });
+      }
     }
   }
 
@@ -85,9 +116,17 @@ class AIEditManager {
     }
 
     const snapshotInfo = this.snapshotOpenEvents.get(filePath);
+    const recentAICompletion = this.recentAICompletions.get(filePath);
+    const now = Date.now();
 
-    // Check if we have 1+ valid snapshot open events within the debounce window
-    if (snapshotInfo && snapshotInfo.count >= 1 && snapshotInfo.uri?.query) {
+    // Check for recent AI completion (within time window)
+    const hasRecentAICompletion = recentAICompletion && 
+      (now - recentAICompletion.timestamp) < this.AI_COMPLETION_WINDOW_MS;
+
+    // Check if we have 1+ valid snapshot open events (Copilot Chat)
+    const hasCopilotChat = snapshotInfo && snapshotInfo.count >= 1 && snapshotInfo.uri?.query;
+
+    if (hasCopilotChat) {
       try {
         if (!this.workspaceBaseStoragePath) {
           throw new Error('No workspace base storage path found');
@@ -104,7 +143,7 @@ class AIEditManager {
         if (!workspaceFolder) {
           throw new Error('No workspace folder found for file path: ' + filePath);
         }
-        console.log('[git-ai-tracker] AIEditManager: AI edit detected for', filePath, '- triggering AI checkpoint (sessionId:', sessionId, ', requestId:', requestId, ', chatSessionPath:', chatSessionPath, ', workspaceFolder:', workspaceFolder.uri.fsPath, ')');
+        console.log('[git-ai-tracker] AIEditManager: Copilot Chat edit detected for', filePath, '- triggering AI checkpoint (sessionId:', sessionId, ', requestId:', requestId, ', chatSessionPath:', chatSessionPath, ', workspaceFolder:', workspaceFolder.uri.fsPath, ')');
         this.checkpoint("ai", JSON.stringify({
           chatSessionPath,
           sessionId,
@@ -114,6 +153,10 @@ class AIEditManager {
       } catch (e) {
         console.error('[git-ai-tracker] AIEditManager: Failed to parse snapshot URI query as JSON. Unable to trigger AI checkpoint', e);
       }
+    } else if (hasRecentAICompletion) {
+      console.log('[git-ai-tracker] AIEditManager: Copilot inline/completion detected for', filePath, 
+                  '- triggering AI checkpoint (lines:', recentAICompletion!.lineCount, ')');
+      this.checkpoint("ai");
     } else {
       console.log('[git-ai-tracker] AIEditManager: No AI pattern detected for', filePath, '- triggering human checkpoint');
       this.checkpoint("human");
@@ -122,6 +165,7 @@ class AIEditManager {
     // Cleanup
     this.pendingSaves.delete(filePath);
     this.snapshotOpenEvents.delete(filePath);
+    this.recentAICompletions.delete(filePath);
   }
 
   public triggerInitialHumanCheckpoint(): void {
@@ -241,10 +285,11 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('[git-ai-tracker] initial open file', doc);
   });
 
-  // Change event
+  // Change event - detect AI completions
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((event) => {
       console.log('[git-ai-tracker] change event', event);
+      aiEditManager.handleTextChangeEvent(event);
     })
   );
 
