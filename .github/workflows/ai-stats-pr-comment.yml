@@ -98,38 +98,38 @@ jobs:
             else if (aiPercent > 25) emoji = '🤖';
             else emoji = '👨‍💻';
             
-            const comment = `## ${emoji} AI Contribution Statistics
+            const comment = \`## \${emoji} AI Contribution Statistics
             
-            This PR contains **${aiPercentage}%** AI-generated code.
+            This PR contains **\${aiPercentage}%** AI-generated code.
             
             ### 📊 Breakdown
 
-\`\`\`
-Human  ${humanBar}${aiBar}  AI
-        ${humanPercent}%          ${aiPercent}%
-\`\`\`
+            \\\`\\\`\\\`
+            Human  \${humanBar}\${aiBar}  AI
+                    \${humanPercent}%          \${aiPercent}%
+            \\\`\\\`\\\`
 
-| Metric | Value |
-|--------|-------|
-| 🤖 AI Lines | ${aiLines} |
-| 👨‍💻 Human Lines | ${humanLines} |
-| ➕ Total Additions | ${totalAdditions} |
-| 📝 Commits Analyzed | ${commitCount} |
+            | Metric | Value |
+            |--------|-------|
+            | 🤖 AI Lines | \${aiLines} |
+            | 👨‍💻 Human Lines | \${humanLines} |
+            | ➕ Total Additions | \${totalAdditions} |
+            | 📝 Commits Analyzed | \${commitCount} |
 
----
+            ---
 
-<details>
-<summary>💡 How this is calculated</summary>
+            <details>
+            <summary>💡 How this is calculated</summary>
 
-This PR uses [git-ai-tracker](https://github.com/${{ github.repository }}) to automatically detect and track AI-generated code contributions. The statistics are calculated by analyzing:
-- GitHub Copilot suggestions
-- Cursor AI edits
-- Other AI coding assistants
+            This PR uses [git-ai-tracker](https://github.com/\${{ github.repository }}) to automatically detect and track AI-generated code contributions. The statistics are calculated by analyzing:
+            - GitHub Copilot suggestions
+            - Cursor AI edits
+            - Other AI coding assistants
 
-AI-generated code is tracked at the line level and stored in git notes for transparency and accountability.
-</details>
+            AI-generated code is tracked at the line level and stored in git notes for transparency and accountability.
+            </details>
 
-<sub>🚀 Powered by [git-ai-tracker](https://github.com/${{ github.repository }}) | Last updated: ${new Date().toISOString()}</sub>`;
+            <sub>🚀 Powered by [git-ai-tracker](https://github.com/\${{ github.repository }}) | Last updated: \${new Date().toISOString()}</sub>\`;
             
             // Find existing comment
             const {data: comments} = await github.rest.issues.listComments({
