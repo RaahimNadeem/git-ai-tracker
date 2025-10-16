@@ -8,6 +8,7 @@ use crate::commands::checkpoint_agent::agent_preset::{
 use crate::config;
 use crate::git::find_repository;
 use crate::git::find_repository_in_path;
+use crate::git::repository::exec_git;
 use crate::utils::Timer;
 use std::io::IsTerminal;
 
@@ -575,20 +576,25 @@ fn handle_stats_repo(args: &[String]) {
         }
     };
 
-    // Build git log command
-    let mut revwalk = match repo.repo_git2.revwalk() {
-        Ok(rw) => rw,
+    // Get list of commits using git log
+    let mut args = repo.global_args_for_exec();
+    args.push("log".to_string());
+    args.push("--format=%H%n%s".to_string());
+    if let Some(lim) = limit {
+        args.push(format!("-n{}", lim));
+    }
+    args.push(target_branch.clone());
+
+    let output = match exec_git(&args) {
+        Ok(output) => output,
         Err(e) => {
-            eprintln!("Error creating revwalk: {}", e);
+            eprintln!("Error getting commit list: {}", e);
             std::process::exit(1);
         }
     };
 
-    // Start from the target branch
-    if let Err(e) = revwalk.push_head() {
-        eprintln!("Error pushing HEAD to revwalk: {}", e);
-        std::process::exit(1);
-    }
+    let commits_output = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = commits_output.lines().collect();
 
     // Aggregate statistics
     let mut total_commits = 0;
@@ -600,38 +606,25 @@ fn handle_stats_repo(args: &[String]) {
 
     let mut commit_details = Vec::new();
 
-    // Iterate through commits
-    for (idx, oid_result) in revwalk.enumerate() {
-        if let Some(lim) = limit {
-            if idx >= lim {
-                break;
-            }
+    // Parse commits (format: hash\nmessage\n)
+    let mut i = 0;
+    while i < lines.len() {
+        let sha = lines[i].trim();
+        if sha.is_empty() {
+            i += 1;
+            continue;
         }
 
-        let oid = match oid_result {
-            Ok(oid) => oid,
-            Err(_) => continue,
+        let message = if i + 1 < lines.len() {
+            lines[i + 1].trim().to_string()
+        } else {
+            "".to_string()
         };
+        i += 2;
 
-        let commit = match repo.repo_git2.find_commit(oid) {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
-
-        // Check since filter
-        if let Some(ref since_str) = since {
-            // Simple date comparison (you might want to improve this)
-            let commit_time = commit.time().seconds();
-            // For now, skip sophisticated date parsing
-            // This is a placeholder - in production you'd want proper date parsing
-            let _ = (since_str, commit_time);
-        }
-
-        // Get stats for this commit
-        let sha = format!("{}", oid);
         let refname = target_branch.clone();
         
-        if let Ok(stats) = stats_for_commit_stats(&repo, &sha, &refname) {
+        if let Ok(stats) = stats_for_commit_stats(&repo, sha, &refname) {
             total_commits += 1;
 
             let ai_adds = stats.ai_additions;
@@ -657,7 +650,7 @@ fn handle_stats_repo(args: &[String]) {
 
                 commit_details.push(json!({
                     "sha": &sha[..8.min(sha.len())],
-                    "message": commit.summary().unwrap_or("").to_string(),
+                    "message": message,
                     "ai_percentage": ai_pct,
                     "ai_lines": ai_adds,
                     "human_lines": human_adds,
