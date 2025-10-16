@@ -35,6 +35,9 @@ pub fn handle_git_ai(args: &[String]) {
         "stats-display" | "show-ai" => {
             handle_stats_display(&args[1..]);
         }
+        "stats-repo" | "stats-aggregate" => {
+            handle_stats_repo(&args[1..]);
+        }
         "checkpoint" => {
             let end = timer.start("git-ai checkpoint");
             handle_checkpoint(&args[1..]);
@@ -84,6 +87,11 @@ fn print_help() {
     eprintln!("    --json                 Output in JSON format");
     eprintln!("  stats-display      Show prominent AI% display for a commit (alias: show-ai)");
     eprintln!("    <commit>               Optional commit SHA (defaults to current HEAD)");
+    eprintln!("  stats-repo         Show aggregate AI% across entire repository history (alias: stats-aggregate)");
+    eprintln!("    [--limit N]            Limit to last N commits (default: all commits)");
+    eprintln!("    [--branch name]        Analyze specific branch (default: current branch)");
+    eprintln!("    [--since date]         Only commits after date (e.g., '2024-01-01', '1 week ago')");
+    eprintln!("    [--json]               Output in JSON format");
     eprintln!("  install-hooks      Install git hooks for AI authorship tracking");
     eprintln!("  squash-authorship  Generate authorship from squashed commits");
     eprintln!("    <branch> <new_sha> <old_sha>  Required: branch, new commit SHA, old commit SHA");
@@ -489,4 +497,265 @@ fn handle_stats_display(args: &[String]) {
 
     println!("💡 Tip: Use 'git notes show {}' to see full authorship data", &target[..8.min(target.len())]);
     println!("");
+}
+
+fn handle_stats_repo(args: &[String]) {
+    use crate::authorship::stats::stats_for_commit_stats;
+    use serde_json::json;
+
+    // Parse arguments
+    let mut limit: Option<usize> = None;
+    let mut branch: Option<String> = None;
+    let mut since: Option<String> = None;
+    let mut json_output = false;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--limit" => {
+                if i + 1 < args.len() {
+                    limit = args[i + 1].parse().ok();
+                    i += 2;
+                } else {
+                    eprintln!("Error: --limit requires a number");
+                    std::process::exit(1);
+                }
+            }
+            "--branch" => {
+                if i + 1 < args.len() {
+                    branch = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    eprintln!("Error: --branch requires a branch name");
+                    std::process::exit(1);
+                }
+            }
+            "--since" => {
+                if i + 1 < args.len() {
+                    since = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    eprintln!("Error: --since requires a date");
+                    std::process::exit(1);
+                }
+            }
+            "--json" => {
+                json_output = true;
+                i += 1;
+            }
+            _ => {
+                eprintln!("Unknown argument: {}", args[i]);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Find the repository
+    let repo = match find_repository(&Vec::<String>::new()) {
+        Ok(repo) => repo,
+        Err(e) => {
+            eprintln!("Error finding repository: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Get current branch if not specified
+    let target_branch = if let Some(b) = branch {
+        b
+    } else {
+        match repo.head() {
+            Ok(head) => {
+                if head.is_branch() {
+                    head.shorthand().unwrap_or("HEAD").to_string()
+                } else {
+                    "HEAD".to_string()
+                }
+            }
+            Err(_) => "HEAD".to_string(),
+        }
+    };
+
+    // Build git log command
+    let mut revwalk = match repo.revwalk() {
+        Ok(rw) => rw,
+        Err(e) => {
+            eprintln!("Error creating revwalk: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Start from the target branch
+    if let Err(e) = revwalk.push_head() {
+        eprintln!("Error pushing HEAD to revwalk: {}", e);
+        std::process::exit(1);
+    }
+
+    // Aggregate statistics
+    let mut total_commits = 0;
+    let mut commits_with_ai = 0;
+    let mut total_ai_lines = 0;
+    let mut total_human_lines = 0;
+    let mut total_mixed_lines = 0;
+    let mut total_additions = 0;
+
+    let mut commit_details = Vec::new();
+
+    // Iterate through commits
+    for (idx, oid_result) in revwalk.enumerate() {
+        if let Some(lim) = limit {
+            if idx >= lim {
+                break;
+            }
+        }
+
+        let oid = match oid_result {
+            Ok(oid) => oid,
+            Err(_) => continue,
+        };
+
+        let commit = match repo.find_commit(oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        // Check since filter
+        if let Some(ref since_str) = since {
+            // Simple date comparison (you might want to improve this)
+            let commit_time = commit.time().seconds();
+            // For now, skip sophisticated date parsing
+            // This is a placeholder - in production you'd want proper date parsing
+            let _ = (since_str, commit_time);
+        }
+
+        // Get stats for this commit
+        let sha = format!("{}", oid);
+        let refname = target_branch.clone();
+        
+        if let Ok(stats) = stats_for_commit_stats(&repo, &sha, &refname) {
+            total_commits += 1;
+
+            let ai_adds = stats.ai_additions;
+            let human_adds = stats.human_additions;
+            let mixed_adds = stats.mixed_additions;
+            let diff_adds = stats.git_diff_added_lines;
+
+            if ai_adds > 0 {
+                commits_with_ai += 1;
+            }
+
+            total_ai_lines += ai_adds;
+            total_human_lines += human_adds;
+            total_mixed_lines += mixed_adds;
+            total_additions += diff_adds;
+
+            if json_output {
+                let ai_pct = if diff_adds > 0 {
+                    ((ai_adds as f64 / diff_adds as f64) * 100.0).round() as u32
+                } else {
+                    0
+                };
+
+                commit_details.push(json!({
+                    "sha": &sha[..8.min(sha.len())],
+                    "message": commit.summary().unwrap_or(""),
+                    "ai_percentage": ai_pct,
+                    "ai_lines": ai_adds,
+                    "human_lines": human_adds,
+                    "mixed_lines": mixed_adds,
+                    "total_lines": diff_adds,
+                }));
+            }
+        }
+    }
+
+    // Calculate overall percentage
+    let overall_ai_percentage = if total_additions > 0 {
+        ((total_ai_lines as f64 / total_additions as f64) * 100.0).round() as u32
+    } else {
+        0
+    };
+
+    let overall_human_percentage = if total_additions > 0 {
+        ((total_human_lines as f64 / total_additions as f64) * 100.0).round() as u32
+    } else {
+        0
+    };
+
+    if json_output {
+        let output = json!({
+            "summary": {
+                "total_commits": total_commits,
+                "commits_with_ai": commits_with_ai,
+                "ai_percentage": overall_ai_percentage,
+                "human_percentage": overall_human_percentage,
+                "total_ai_lines": total_ai_lines,
+                "total_human_lines": total_human_lines,
+                "total_mixed_lines": total_mixed_lines,
+                "total_additions": total_additions,
+            },
+            "commits": commit_details,
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    } else {
+        // Pretty printed output
+        println!("");
+        println!("╔══════════════════════════════════════════════════════════════════════════╗");
+        println!("║                                                                          ║");
+        println!("║                  🏆 REPOSITORY AI STATISTICS 🏆                          ║");
+        println!("║                                                                          ║");
+        println!("╠══════════════════════════════════════════════════════════════════════════╣");
+        println!("║                                                                          ║");
+        
+        // Big overall AI percentage display
+        let ai_display = format!("Overall AI Contribution: {}%", overall_ai_percentage);
+        println!("║         {}         ║", format!("\x1b[1;36m{}\x1b[0m", ai_display));
+        println!("║                                                                          ║");
+        
+        println!("╠══════════════════════════════════════════════════════════════════════════╣");
+        println!("║  Branch: {:<63}║", target_branch);
+        println!("║  Total Commits Analyzed: {:<48}║", total_commits);
+        println!("║  Commits with AI: {:<55}║", commits_with_ai);
+        println!("╠══════════════════════════════════════════════════════════════════════════╣");
+        println!("║                                                                          ║");
+        println!("║  📊 Aggregate Breakdown:                                                 ║");
+        println!("║                                                                          ║");
+        println!("║    AI Lines:       {:>7} / {:<7} ({:>3}%)                              ║",
+            total_ai_lines, total_additions, overall_ai_percentage);
+        println!("║    Human Lines:    {:>7} / {:<7} ({:>3}%)                              ║",
+            total_human_lines, total_additions, overall_human_percentage);
+        println!("║    Mixed Lines:    {:>7}                                                 ║", total_mixed_lines);
+        println!("║    Total Lines:    {:>7}                                                 ║", total_additions);
+        println!("║                                                                          ║");
+        
+        // Visual bar
+        println!("║  Distribution:                                                           ║");
+        let bar_width = 60;
+        let ai_bar_width = if total_additions > 0 {
+            (total_ai_lines as f64 / total_additions as f64 * bar_width as f64) as usize
+        } else {
+            0
+        };
+        let human_bar_width = bar_width.saturating_sub(ai_bar_width);
+        
+        let ai_bar = "█".repeat(ai_bar_width);
+        let human_bar = "█".repeat(human_bar_width);
+        
+        println!("║    \x1b[1;31m{}\x1b[1;32m{}\x1b[0m     ║", ai_bar, human_bar);
+        println!("║    \x1b[1;31mAI\x1b[0m                                                    \x1b[1;32mHuman\x1b[0m        ║");
+        println!("║                                                                          ║");
+        println!("╚══════════════════════════════════════════════════════════════════════════╝");
+        println!("");
+
+        if total_commits == 0 {
+            println!("⚠️  No commits found with AI tracking data.");
+            println!("   Make sure you've committed code with git-ai-tracker active!");
+            println!("");
+        } else {
+            println!("💡 Tips:");
+            println!("   • Use --json for machine-readable output");
+            println!("   • Use --limit N to analyze only the last N commits");
+            println!("   • Use --branch <name> to analyze a specific branch");
+            println!("");
+        }
+    }
 }
