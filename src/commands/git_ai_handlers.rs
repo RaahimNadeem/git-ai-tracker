@@ -576,7 +576,7 @@ fn handle_stats_repo(args: &[String]) {
     };
 
     // Build git log command
-    let mut revwalk = match repo.revwalk() {
+    let mut revwalk = match repo.repo_git2.revwalk() {
         Ok(rw) => rw,
         Err(e) => {
             eprintln!("Error creating revwalk: {}", e);
@@ -613,7 +613,7 @@ fn handle_stats_repo(args: &[String]) {
             Err(_) => continue,
         };
 
-        let commit = match repo.find_commit(oid) {
+        let commit = match repo.repo_git2.find_commit(oid) {
             Ok(c) => c,
             Err(_) => continue,
         };
@@ -657,7 +657,7 @@ fn handle_stats_repo(args: &[String]) {
 
                 commit_details.push(json!({
                     "sha": &sha[..8.min(sha.len())],
-                    "message": commit.summary().unwrap_or(""),
+                    "message": commit.summary().unwrap_or("").to_string(),
                     "ai_percentage": ai_pct,
                     "ai_lines": ai_adds,
                     "human_lines": human_adds,
@@ -729,7 +729,7 @@ fn handle_stats_repo(args: &[String]) {
         
         // Visual bar
         println!("║  Distribution:                                                           ║");
-        let bar_width = 60;
+        let bar_width: usize = 60;
         let ai_bar_width = if total_additions > 0 {
             (total_ai_lines as f64 / total_additions as f64 * bar_width as f64) as usize
         } else {
