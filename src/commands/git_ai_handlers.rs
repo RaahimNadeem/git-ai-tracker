@@ -567,7 +567,7 @@ fn handle_stats_repo(args: &[String]) {
         match repo.head() {
             Ok(head) => {
                 if head.is_branch() {
-                    head.shorthand().unwrap_or("HEAD").to_string()
+                    head.shorthand().unwrap_or_else(|_| "HEAD".to_string())
                 } else {
                     "HEAD".to_string()
                 }
