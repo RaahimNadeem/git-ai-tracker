@@ -184,34 +184,67 @@ Use as a GitHub Action to enforce AI tracking across all repos:
 
 ---
 
-## 📖 Commands
+## 📖 Commands Reference
 
-### Core Commands
+### Quick Command Overview
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| **`stats-display`** | Show beautiful AI% visualization for a commit | `git-ai-tracker stats-display [commit]` |
+| **`show-ai`** | Alias for `stats-display` | `git-ai-tracker show-ai` |
+| **`stats`** | Show detailed AI statistics with optional JSON | `git-ai-tracker stats [commit] [--json]` |
+| **`stats-repo`** | Aggregate AI% across entire repository history | `git-ai-tracker stats-repo [--limit N] [--branch name] [--json]` |
+| **`blame`** | Enhanced git blame with AI attribution | `git-ai-tracker blame <file>` |
+| **`checkpoint`** | Create AI/human authorship checkpoint | `git-ai-tracker checkpoint [agent]` |
+| **`install-hooks`** | Install IDE extensions (Copilot/Cursor) | `git-ai-tracker install-hooks` |
+| **`squash-authorship`** | Generate authorship from squashed commits | `git-ai-tracker squash-authorship <branch> <new_sha> <old_sha>` |
+| **`--help`** | Show all available commands | `git-ai-tracker --help` |
+| **`--version`** | Show version information | `git-ai-tracker --version` |
+
+---
+
+### Detailed Examples
+
+#### 📊 View AI Statistics
 
 ```bash
-# Show AI stats for a commit
-git-ai-tracker stats [commit]
-git-ai-tracker stats --json  # JSON output
+# Show beautiful visualization for latest commit
+git-ai-tracker stats-display
 
-# Show prominent AI% display
-git-ai-tracker stats-display [commit]
-git-ai-tracker show-ai [commit]  # Alias
+# Show for specific commit
+git-ai-tracker stats-display abc123
 
-# Enhanced blame with AI attribution
-git-ai-tracker blame <file>
+# Get detailed stats in JSON format
+git-ai-tracker stats --json
 
-# Create checkpoints (used internally by IDE extensions)
+# Analyze entire repository
+git-ai-tracker stats-repo
+
+# Analyze last 50 commits
+git-ai-tracker stats-repo --limit 50
+```
+
+#### 🔍 Enhanced Blame
+
+```bash
+# Show AI attribution per line
+git-ai-tracker blame src/main.rs
+
+# Works with standard git blame options
+git-ai-tracker blame -L 10,20 src/utils.js
+```
+
+#### ⚡ Manual Checkpointing
+
+```bash
+# Create AI checkpoint (GitHub Copilot)
 git-ai-tracker checkpoint github-copilot
+
+# Create AI checkpoint (Cursor)
 git-ai-tracker checkpoint cursor
 
-# Install IDE hooks
-git-ai-tracker install-hooks
-
-# Show help
-git-ai-tracker --help
-
-# Show version
-git-ai-tracker --version
+# Show current working log
+git-ai-tracker checkpoint --show-working-log
 ```
 
 ---
