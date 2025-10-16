@@ -1,14 +1,34 @@
 {
   "name": "cursor-git-ai-tracker",
-  "displayName": "git-ai-tracker for Cursor",
-  "description": "Automatically track AI code contributions in Cursor",
+  "displayName": "git-ai-tracker - AI Code Attribution",
+  "description": "Track AI-generated code contributions in Cursor IDE. See what percentage of your codebase was written by AI vs humans.",
   "version": "1.0.0",
   "icon": "git-ai.png",
-  "publisher": "git-ai-tracker",
+  "publisher": "RaahimNadeem",
+  "author": {
+    "name": "Raahim Nadeem",
+    "url": "https://github.com/RaahimNadeem"
+  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/RaahimNadeem/git-ai-tracker"
   },
+  "bugs": {
+    "url": "https://github.com/RaahimNadeem/git-ai-tracker/issues"
+  },
+  "homepage": "https://github.com/RaahimNadeem/git-ai-tracker#readme",
+  "keywords": [
+    "ai",
+    "cursor",
+    "code-tracking",
+    "attribution",
+    "ai-statistics",
+    "git",
+    "git-notes",
+    "code-analysis",
+    "transparency"
+  ],
   "engines": {
     "vscode": "1.99.3",
     "node": ">=20.18.1"
